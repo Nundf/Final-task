@@ -1,78 +1,137 @@
-//SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0 <0.9.0;
-
-// Useful for debugging. Remove when deploying to a live network.
-import "hardhat/console.sol";
-
-// Use openzeppelin to inherit battle-tested implementations (ERC20, ERC721, etc)
-// import "@openzeppelin/contracts/access/Ownable.sol";
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
 /**
- * A smart contract that allows changing a state variable of the contract and tracking the changes
- * It also allows the owner to withdraw the Ether in the contract
- * @author BuidlGuidl
+ * @title Смарт-контракт для голосования
+ * @dev Позволяет создавать голосования, голосовать и завершать голосования с подсчетом голосов, а также проверять проголосовал ли пользователь
  */
-contract YourContract {
-    // State Variables
-    address public immutable owner;
+contract VotingContract {
     string public greeting = "Building Unstoppable Apps!!!";
-    bool public premium = false;
-    uint256 public totalCounter = 0;
-    mapping(address => uint) public userGreetingCounter;
 
-    // Events: a way to emit log statements from smart contract that can be listened to by external parties
-    event GreetingChange(address indexed greetingSetter, string newGreeting, bool premium, uint256 value);
-
-    // Constructor: Called once on contract deployment
-    // Check packages/hardhat/deploy/00_deploy_your_contract.ts
-    constructor(address _owner) {
-        owner = _owner;
+    // Структура, описывающая голосование
+    struct Poll {
+        string question; // Вопрос голосования
+        string[] options; // Варианты ответа
+        mapping(uint => uint) voteCounts; // Количество голосов для каждого варианта
+        mapping(address => bool) hasVoted; // Отслеживание проголосовавших участников
+        uint endTime; // Время завершения голосования
+        bool isActive; // Статус активности голосования
+        address creator; // Создатель голосования
     }
 
-    // Modifier: used to define a set of rules that must be met before or after a function is executed
-    // Check the withdraw() function
-    modifier isOwner() {
-        // msg.sender: predefined variable that represents address of the account that called the current function
-        require(msg.sender == owner, "Not the Owner");
-        _;
+    // Список всех созданных голосований
+    Poll[] public polls;
+
+    /**
+     * @dev Создает новое голосование.
+     * @param _question Вопрос голосования.
+     * @param _options Варианты ответа для голосования.
+     * @param _duration Продолжительность голосования в секундах.
+     */
+    function createPoll(string memory _question, string[] memory _options, uint _duration) public {
+        require(_options.length > 1, "There must be at least two possible answers");
+        require(_duration > 0, "The duration must be greater than zero");
+
+        Poll storage newPoll = polls.push();
+        newPoll.question = _question;
+        newPoll.options = _options;
+        newPoll.endTime = block.timestamp + _duration;
+        newPoll.isActive = true;
+        newPoll.creator = msg.sender;
     }
 
     /**
-     * Function that allows anyone to change the state variable "greeting" of the contract and increase the counters
-     *
-     * @param _newGreeting (string memory) - new greeting to save on the contract
+     * @dev Голосует за определенный вариант в голосовании.
+     * @param _pollId ID голосования.
+     * @param _optionIndex Индекс выбранного варианта.
      */
-    function setGreeting(string memory _newGreeting) public payable {
-        // Print data to the hardhat chain console. Remove when deploying to a live network.
-        console.log("Setting new greeting '%s' from %s", _newGreeting, msg.sender);
+    function vote(uint _pollId, uint _optionIndex) public {
+        require(_pollId < polls.length, "Voting with such an ID does not exist");
+        Poll storage poll = polls[_pollId];
 
-        // Change state variables
-        greeting = _newGreeting;
-        totalCounter += 1;
-        userGreetingCounter[msg.sender] += 1;
+        require(block.timestamp < poll.endTime, "The voting is completed");
+        require(poll.isActive, "Voting is not active");
+        require(!poll.hasVoted[msg.sender], "You have already voted");
+        require(_optionIndex < poll.options.length, "Invalid option index");
 
-        // msg.value: built-in global variable that represents the amount of ether sent with the transaction
-        if (msg.value > 0) {
-            premium = true;
-        } else {
-            premium = false;
+        // Устанавливаем, что пользователь проголосовал
+        poll.hasVoted[msg.sender] = true;
+        // Увеличиваем счетчик голосов для выбранного варианта
+        poll.voteCounts[_optionIndex]++;
+    }
+
+    /**
+     * @dev Завершает голосование и деактивирует его.
+     * @param _pollId ID голосования.
+     */
+    function endPoll(uint _pollId) public {
+        require(_pollId < polls.length, "Voting with such an ID does not exist");
+        Poll storage poll = polls[_pollId];
+
+        require(block.timestamp >= poll.endTime, "Voting is still active");
+        require(poll.isActive, "The voting has already been completed");
+        require(msg.sender == poll.creator, "Only the creator can complete the voting");
+
+        // Деактивируем голосование
+        poll.isActive = false;
+    }
+
+    /**
+     * @dev Получает результаты голосования.
+     * @param _pollId ID голосования.
+     * @return options Массив вариантов ответа.
+     * @return voteCounts Массив количества голосов для каждого варианта.
+     */
+    function getResults(uint _pollId) public view returns (string[] memory options, uint[] memory voteCounts) {
+        require(_pollId < polls.length, "Voting with such an ID does not exist");
+        Poll storage poll = polls[_pollId];
+
+        options = poll.options;
+        voteCounts = new uint[](poll.options.length);
+
+        for (uint i = 0; i < poll.options.length; i++) {
+            voteCounts[i] = poll.voteCounts[i];
         }
-
-        // emit: keyword used to trigger an event
-        emit GreetingChange(msg.sender, _newGreeting, msg.value > 0, msg.value);
     }
 
     /**
-     * Function that allows the owner to withdraw all the Ether in the contract
-     * The function can only be called by the owner of the contract as defined by the isOwner modifier
+     * @dev Возвращает общее количество голосований.
+     * @return Количество созданных голосований.
      */
-    function withdraw() public isOwner {
-        (bool success, ) = owner.call{ value: address(this).balance }("");
-        require(success, "Failed to send Ether");
+    function getPollCount() public view returns (uint) {
+        return polls.length;
     }
 
     /**
-     * Function that allows the contract to receive ETH
+     * @dev Возвращает информацию о голосовании по его ID.
+     * @param _pollId ID голосования.
+     * @return question Вопрос голосования.
+     * @return options Массив вариантов ответа.
+     * @return endTime Время завершения голосования.
+     * @return isActive Статус активности голосования.
+     * @return creator Адрес создателя голосования.
      */
-    receive() external payable {}
+    function getPollDetails(uint _pollId) public view returns (
+        string memory question,
+        string[] memory options,
+        uint endTime,
+        bool isActive,
+        address creator
+    ) {
+        require(_pollId < polls.length, "Voting with such an ID does not exist");
+        Poll storage poll = polls[_pollId];
+        return (poll.question, poll.options, poll.endTime, poll.isActive, poll.creator);
+    }
+
+    /**
+     * @dev Проверяет, голосовал ли пользователь в данном голосовании.
+     * @param _pollId ID голосования.
+     * @param _voter Адрес пользователя.
+     * @return True, если пользователь уже голосовал, иначе False.
+     */
+    function hasUserVoted(uint _pollId, address _voter) public view returns (bool) {
+        require(_pollId < polls.length, "Voting with such an ID does not exist");
+        Poll storage poll = polls[_pollId];
+        return poll.hasVoted[_voter];
+    }
 }
