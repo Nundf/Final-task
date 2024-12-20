@@ -12,7 +12,7 @@ export default function PollResults() {
   });
 
   return (
-    <div className="p-6 bg-gradient-to-r from-teal-400 to-blue-500 text-white rounded-lg shadow-lg mx-auto">
+    <div className="p-6 bg-gradient-to-r from-teal-400 to-red-500 text-white rounded-lg shadow-lg mx-auto">
       <h3 className="text-2xl font-bold mb-4">Результаты голосования</h3>
       <input
         type="number"

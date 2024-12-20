@@ -35,11 +35,11 @@ export default function CreatePoll() {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-r from-teal-400 to-blue-500 text-white rounded-lg shadow-lg mx-auto">
+    <div className="p-6 bg-gradient-to-r from-teal-400 to-red-500 text-white rounded-lg shadow-lg mx-auto">
       <h2 className="text-2xl font-bold mb-4">Создать голосование</h2>
       <input
         type="text"
-        placeholder="Вопрос голосования"
+        placeholder="Вопрос"
         value={question}
         onChange={e => setQuestion(e.target.value)} // Обновляем состояние вопроса
         className="w-full p-2 mb-4 text-white rounded-lg"
@@ -47,7 +47,7 @@ export default function CreatePoll() {
       <div className="flex items-center mb-4">
         <input
           type="text"
-          placeholder="Добавить вариант ответа"
+          placeholder="Вариант ответа"
           value={optionInput}
           onChange={e => setOptionInput(e.target.value)} // Обновляем состояние для нового варианта
           className="flex-1 p-2 mr-2 text-white rounded-lg"

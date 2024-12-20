@@ -20,7 +20,7 @@ export default function PollList() {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg shadow-lg mx-auto">
+    <div className="p-6 bg-gradient-to-r from-red-500 to-teal-400 text-white rounded-lg shadow-lg mx-auto">
       <h2 className="text-2xl font-bold mb-4">Список голосований</h2>
       {pollCount && pollCount > 0 ? renderPolls() : <p className="text-xl">Нет активных голосований</p>}
       {/*Если голосования есть, показываем их*/}
